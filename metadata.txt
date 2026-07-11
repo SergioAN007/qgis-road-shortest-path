@@ -1,6 +1,6 @@
 [general]
 name=Road Shortest Path
-qgisMinimumVersion=3.22
+qgisMinimumVersion=3.16
 version=1.1.1
 author=Andreev Sergey Petrovich
 email=sp4andreev@gmail.com
