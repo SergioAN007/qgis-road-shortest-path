@@ -66,7 +66,7 @@ MIT License.
 
 ## Author
 
-Sergey
+Andreev Sergey
 
 ## Contributing
 
