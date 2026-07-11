@@ -18,7 +18,7 @@ The plugin allows you to calculate the shortest route between two points by simp
 
 ## Requirements
 
-* QGIS 3.28 or newer
+* QGIS 3.22 or newer
 
 ## Installation
 
@@ -59,28 +59,6 @@ The plugin creates a **Road Shortest Path** group containing:
 
 The route can be edited, styled, exported, or saved like any other QGIS vector layer.
 
-## Screenshots
-
-Add screenshots here.
-
-Example:
-
-```
-images/
-    toolbar.png
-    routing.png
-    result.png
-```
-
-Then include them:
-
-```markdown
-![Toolbar](images/toolbar.png)
-
-![Routing](images/routing.png)
-
-![Result](images/result.png)
-```
 
 ## License
 
