@@ -29,7 +29,7 @@ SETTINGS_PREFIX = 'RoadShortestPath'
 TRANSLATIONS = {
     'az': {
         'route': 'Marşrut',
-        'clear_route': 'Yeni marşrut',
+        'clear_route': 'Təmizlə',
         'roads_layer': 'Yol qatı:',
         'choose_line_layer': 'Xətti yol qatını seçin.',
         'click_start': 'Başlanğıc nöqtəsini seçin.',
@@ -40,7 +40,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Qrafın ən yaxın zirvələri tapılmadı.',
         'route_not_found': 'Göstərilən nöqtələr arasında marşrut tapılmadı.',
         'route_updated': 'Marşrut yeniləndi.',
-        'route_layer': 'Marşrut',
+        'route_layer': 'Yol',
         'marker_layer': 'Marşrut nöqtələri',
         'start': 'Başlanğıc',
         'end': 'Son',
@@ -51,7 +51,7 @@ TRANSLATIONS = {
 
     'en': {
         'route': 'Route',
-        'clear_route': 'New Route',
+        'clear_route': 'Clear',
         'roads_layer': 'Road layer:',
         'choose_line_layer': 'Select a road line layer.',
         'click_start': 'Select the start point.',
@@ -62,7 +62,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Nearest graph vertices were not found.',
         'route_not_found': 'No route found between the selected points.',
         'route_updated': 'Route updated.',
-        'route_layer': 'Route',
+        'route_layer': 'Path',
         'marker_layer': 'Route Points',
         'start': 'Start',
         'end': 'End',
@@ -73,7 +73,7 @@ TRANSLATIONS = {
 
     'fr': {
         'route': 'Itinéraire',
-        'clear_route': 'Nouvel itinéraire',
+        'clear_route': 'Effacer',
         'roads_layer': 'Couche de routes :',
         'choose_line_layer': 'Sélectionnez une couche linéaire de routes.',
         'click_start': 'Sélectionnez le point de départ.',
@@ -84,7 +84,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Impossible de trouver les sommets les plus proches du graphe.',
         'route_not_found': 'Aucun itinéraire trouvé entre les points sélectionnés.',
         'route_updated': 'Itinéraire mis à jour.',
-        'route_layer': 'Itinéraire',
+        'route_layer': 'Chemin',
         'marker_layer': 'Points de l’itinéraire',
         'start': 'Départ',
         'end': 'Arrivée',
@@ -95,7 +95,7 @@ TRANSLATIONS = {
 
     'ka': {
         'route': 'მარშრუტი',
-        'clear_route': 'ახალი მარშრუტი',
+        'clear_route': 'გასუფთავება',
         'roads_layer': 'გზების ფენა:',
         'choose_line_layer': 'აირჩიეთ გზების ხაზოვანი ფენა.',
         'click_start': 'აირჩიეთ საწყისი წერტილი.',
@@ -106,7 +106,7 @@ TRANSLATIONS = {
         'nearest_failed': 'გრაფის უახლოესი წვეროები ვერ მოიძებნა.',
         'route_not_found': 'მითითებულ წერტილებს შორის მარშრუტი ვერ მოიძებნა.',
         'route_updated': 'მარშრუტი განახლდა.',
-        'route_layer': 'მარშრუტი',
+        'route_layer': 'გზა',
         'marker_layer': 'მარშრუტის წერტილები',
         'start': 'დასაწყისი',
         'end': 'დასასრული',
@@ -117,7 +117,7 @@ TRANSLATIONS = {
 
     'pl': {
         'route': 'Trasa',
-        'clear_route': 'Nowa trasa',
+        'clear_route': 'Wyczyść',
         'roads_layer': 'Warstwa dróg:',
         'choose_line_layer': 'Wybierz liniową warstwę dróg.',
         'click_start': 'Wskaż punkt początkowy.',
@@ -128,7 +128,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Nie znaleziono najbliższych wierzchołków grafu.',
         'route_not_found': 'Nie znaleziono trasy między wybranymi punktami.',
         'route_updated': 'Trasa została zaktualizowana.',
-        'route_layer': 'Trasa',
+        'route_layer': 'Ścieżka',
         'marker_layer': 'Punkty trasy',
         'start': 'Start',
         'end': 'Koniec',
@@ -139,7 +139,7 @@ TRANSLATIONS = {
 
     'ru': {
         'route': 'Маршрут',
-        'clear_route': 'Новый маршрут',
+        'clear_route': 'Очистить',
         'roads_layer': 'Слой дорог:',
         'choose_line_layer': 'Выберите линейный слой дорог.',
         'click_start': 'Укажите стартовую точку.',
@@ -150,7 +150,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Не найдены ближайшие вершины графа.',
         'route_not_found': 'Маршрут между указанными точками не найден.',
         'route_updated': 'Маршрут обновлен.',
-        'route_layer': 'Маршрут',
+        'route_layer': 'Путь',
         'marker_layer': 'Точки маршрута',
         'start': 'Старт',
         'end': 'Финиш',
@@ -161,7 +161,7 @@ TRANSLATIONS = {
 
     'uk': {
         'route': 'Маршрут',
-        'clear_route': 'Новий маршрут',
+        'clear_route': 'Очистити',
         'roads_layer': 'Шар доріг:',
         'choose_line_layer': 'Виберіть лінійний шар доріг.',
         'click_start': 'Вкажіть початкову точку.',
@@ -172,7 +172,7 @@ TRANSLATIONS = {
         'nearest_failed': 'Не знайдено найближчих вершин графа.',
         'route_not_found': 'Маршрут між вибраними точками не знайдено.',
         'route_updated': 'Маршрут оновлено.',
-        'route_layer': 'Маршрут',
+        'route_layer': 'Шлях',
         'marker_layer': 'Точки маршруту',
         'start': 'Старт',
         'end': 'Фініш',
