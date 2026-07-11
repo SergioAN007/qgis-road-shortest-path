@@ -18,7 +18,7 @@ The plugin allows you to calculate the shortest route between two points by simp
 
 ## Requirements
 
-* QGIS 3.22 or newer
+* QGIS 3.16 or newer
 
 ## Installation
 
