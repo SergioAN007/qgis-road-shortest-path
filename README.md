@@ -27,7 +27,6 @@ The plugin allows you to calculate the shortest route between two points by simp
 1. Open **Plugins → Manage and Install Plugins**.
 2. Click **Install from ZIP**.
 3. Select the plugin ZIP file.
-4. Restart QGIS if necessary.
 
 ## Usage
 
