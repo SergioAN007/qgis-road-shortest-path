@@ -3,7 +3,7 @@ import heapq
 
 from qgis.PyQt.QtCore import QVariant, Qt, QSettings
 from qgis.PyQt.QtGui import QColor, QCursor, QPixmap, QPainter, QPen
-from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
 from qgis.core import (
     QgsProject,
     QgsMapLayerType,
@@ -20,167 +20,15 @@ from qgis.core import (
     QgsCategorizedSymbolRenderer,
     QgsSettings,
     QgsSpatialIndex,
+    QgsDistanceArea,
+    QgsUnitTypes,
 )
 from qgis.gui import QgsMapToolEmitPoint
+from .translations import TRANSLATIONS
 
 DEFAULT_ROUTE_COLOR = '#ff0000'
+DEFAULT_UNITS = 'km'
 SETTINGS_PREFIX = 'RoadShortestPath'
-
-TRANSLATIONS = {
-    'az': {
-        'route': 'Marşrut',
-        'clear_route': 'Təmizlə',
-        'roads_layer': 'Yol qatı:',
-        'choose_line_layer': 'Xətti yol qatını seçin.',
-        'click_start': 'Başlanğıc nöqtəsini seçin.',
-        'click_end': 'Son nöqtəni seçin.',
-        'start_selected': 'Başlanğıc seçildi. İndi son nöqtəni seçin.',
-        'cleared': 'Marşrut və nöqtələr təmizləndi. Yeni başlanğıc nöqtəsini seçin.',
-        'graph_failed': 'Seçilmiş qatdan yol qrafını qurmaq mümkün olmadı.',
-        'nearest_failed': 'Qrafın ən yaxın zirvələri tapılmadı.',
-        'route_not_found': 'Göstərilən nöqtələr arasında marşrut tapılmadı.',
-        'route_updated': 'Marşrut yeniləndi.',
-        'route_layer': 'Yol',
-        'marker_layer': 'Marşrut nöqtələri',
-        'start': 'Başlanğıc',
-        'end': 'Son',
-        'shortest_path': 'Ən qısa yol',
-        'menu': 'Ən qısa yolun axtarışı',
-        'caching': 'Keşlənir…'
-    },
-
-    'en': {
-        'route': 'Route',
-        'clear_route': 'Clear',
-        'roads_layer': 'Road layer:',
-        'choose_line_layer': 'Select a road line layer.',
-        'click_start': 'Select the start point.',
-        'click_end': 'Select the end point.',
-        'start_selected': 'Start point selected. Now select the end point.',
-        'cleared': 'Route and points cleared. Select a new start point.',
-        'graph_failed': 'Failed to build the road graph from the selected layer.',
-        'nearest_failed': 'Nearest graph vertices were not found.',
-        'route_not_found': 'No route found between the selected points.',
-        'route_updated': 'Route updated.',
-        'route_layer': 'Path',
-        'marker_layer': 'Route Points',
-        'start': 'Start',
-        'end': 'End',
-        'shortest_path': 'Shortest Path',
-        'menu': 'Shortest Path',
-        'caching': 'Caching…'
-    },
-
-    'fr': {
-        'route': 'Itinéraire',
-        'clear_route': 'Effacer',
-        'roads_layer': 'Couche de routes :',
-        'choose_line_layer': 'Sélectionnez une couche linéaire de routes.',
-        'click_start': 'Sélectionnez le point de départ.',
-        'click_end': 'Sélectionnez le point d’arrivée.',
-        'start_selected': 'Point de départ sélectionné. Sélectionnez maintenant le point d’arrivée.',
-        'cleared': 'L’itinéraire et les points ont été effacés. Sélectionnez un nouveau point de départ.',
-        'graph_failed': 'Impossible de créer le graphe routier à partir de la couche sélectionnée.',
-        'nearest_failed': 'Impossible de trouver les sommets les plus proches du graphe.',
-        'route_not_found': 'Aucun itinéraire trouvé entre les points sélectionnés.',
-        'route_updated': 'Itinéraire mis à jour.',
-        'route_layer': 'Chemin',
-        'marker_layer': 'Points de l’itinéraire',
-        'start': 'Départ',
-        'end': 'Arrivée',
-        'shortest_path': 'Plus court chemin',
-        'menu': 'Recherche du plus court chemin',
-        'caching': 'Mise en cache…'
-    },
-
-    'ka': {
-        'route': 'მარშრუტი',
-        'clear_route': 'გასუფთავება',
-        'roads_layer': 'გზების ფენა:',
-        'choose_line_layer': 'აირჩიეთ გზების ხაზოვანი ფენა.',
-        'click_start': 'აირჩიეთ საწყისი წერტილი.',
-        'click_end': 'აირჩიეთ საბოლოო წერტილი.',
-        'start_selected': 'საწყისი წერტილი არჩეულია. ახლა აირჩიეთ საბოლოო წერტილი.',
-        'cleared': 'მარშრუტი და წერტილები გასუფთავებულია. აირჩიეთ ახალი საწყისი წერტილი.',
-        'graph_failed': 'არჩეული ფენიდან გზების გრაფის შექმნა ვერ მოხერხდა.',
-        'nearest_failed': 'გრაფის უახლოესი წვეროები ვერ მოიძებნა.',
-        'route_not_found': 'მითითებულ წერტილებს შორის მარშრუტი ვერ მოიძებნა.',
-        'route_updated': 'მარშრუტი განახლდა.',
-        'route_layer': 'გზა',
-        'marker_layer': 'მარშრუტის წერტილები',
-        'start': 'დასაწყისი',
-        'end': 'დასასრული',
-        'shortest_path': 'უმოკლესი გზა',
-        'menu': 'უმოკლესი გზის ძიება',
-        'caching': 'ქეშირება…'
-    },
-
-    'pl': {
-        'route': 'Trasa',
-        'clear_route': 'Wyczyść',
-        'roads_layer': 'Warstwa dróg:',
-        'choose_line_layer': 'Wybierz liniową warstwę dróg.',
-        'click_start': 'Wskaż punkt początkowy.',
-        'click_end': 'Wskaż punkt końcowy.',
-        'start_selected': 'Punkt początkowy został wybrany. Teraz wskaż punkt końcowy.',
-        'cleared': 'Trasa i punkty zostały wyczyszczone. Wskaż nowy punkt początkowy.',
-        'graph_failed': 'Nie udało się utworzyć grafu dróg z wybranej warstwy.',
-        'nearest_failed': 'Nie znaleziono najbliższych wierzchołków grafu.',
-        'route_not_found': 'Nie znaleziono trasy między wybranymi punktami.',
-        'route_updated': 'Trasa została zaktualizowana.',
-        'route_layer': 'Ścieżka',
-        'marker_layer': 'Punkty trasy',
-        'start': 'Start',
-        'end': 'Koniec',
-        'shortest_path': 'Najkrótsza ścieżka',
-        'menu': 'Wyszukiwanie najkrótszej trasy',
-        'caching': 'Buforowanie…'
-    },
-
-    'ru': {
-        'route': 'Маршрут',
-        'clear_route': 'Очистить',
-        'roads_layer': 'Слой дорог:',
-        'choose_line_layer': 'Выберите линейный слой дорог.',
-        'click_start': 'Укажите стартовую точку.',
-        'click_end': 'Укажите конечную точку.',
-        'start_selected': 'Старт выбран. Теперь укажите финишную точку.',
-        'cleared': 'Маршрут и точки очищены. Укажите новый старт.',
-        'graph_failed': 'Не удалось построить граф дорог из выбранного слоя.',
-        'nearest_failed': 'Не найдены ближайшие вершины графа.',
-        'route_not_found': 'Маршрут между указанными точками не найден.',
-        'route_updated': 'Маршрут обновлен.',
-        'route_layer': 'Путь',
-        'marker_layer': 'Точки маршрута',
-        'start': 'Старт',
-        'end': 'Финиш',
-        'shortest_path': 'Кратчайший путь',
-        'menu': 'Поиск кратчайшего пути',
-        'caching': 'Кэширование…'
-    },
-
-    'uk': {
-        'route': 'Маршрут',
-        'clear_route': 'Очистити',
-        'roads_layer': 'Шар доріг:',
-        'choose_line_layer': 'Виберіть лінійний шар доріг.',
-        'click_start': 'Вкажіть початкову точку.',
-        'click_end': 'Вкажіть кінцеву точку.',
-        'start_selected': 'Початкову точку вибрано. Тепер вкажіть кінцеву точку.',
-        'cleared': 'Маршрут і точки очищено. Вкажіть нову початкову точку.',
-        'graph_failed': 'Не вдалося побудувати граф доріг із вибраного шару.',
-        'nearest_failed': 'Не знайдено найближчих вершин графа.',
-        'route_not_found': 'Маршрут між вибраними точками не знайдено.',
-        'route_updated': 'Маршрут оновлено.',
-        'route_layer': 'Шлях',
-        'marker_layer': 'Точки маршруту',
-        'start': 'Старт',
-        'end': 'Фініш',
-        'shortest_path': 'Найкоротший шлях',
-        'menu': 'Пошук найкоротшого шляху',
-        'caching': 'Кешування…'
-    }
-}
 
 class PointPickerTool(QgsMapToolEmitPoint):
     def __init__(self, canvas, callback):
@@ -226,6 +74,8 @@ class RoadShortestPathPlugin:
         self.layer_combo = None
         self.layer_label = None
         self.color_button = None
+        self.units_combo = None
+        self.length_label = None
         self.map_tool = None
         self.previous_map_tool = None
         self.start_point = None
@@ -271,6 +121,10 @@ class RoadShortestPathPlugin:
             self.settings.setValue(self.setting_key('selected_layer_name'), layer.name() if layer else '')
             self.settings.setValue(self.setting_key('selected_layer_source'), layer.source() if layer else '')
         self.settings.setValue(self.setting_key('route_color'), self.route_color)
+
+        if self.units_combo is not None:
+            self.settings.setValue(self.setting_key('units'), self.units_combo.currentData())
+
         if self.start_point is not None:
             self.settings.setValue(self.setting_key('start_x'), self.start_point.x())
             self.settings.setValue(self.setting_key('start_y'), self.start_point.y())
@@ -282,6 +136,12 @@ class RoadShortestPathPlugin:
         state = self.settings.value(self.setting_key('toolbar_visible'), True, type=bool)
         if self.toolbar is not None:
             self.toolbar.setVisible(state)
+
+        if self.units_combo is not None:
+            units = self.settings.value(self.setting_key('units'), DEFAULT_UNITS)
+            index = self.units_combo.findData(units)
+            if index >= 0:
+                self.units_combo.setCurrentIndex(index)
 
     def initGui(self):
         self.load_settings()
@@ -315,6 +175,17 @@ class RoadShortestPathPlugin:
         self.color_button.clicked.connect(self.cycle_route_color)
         self.update_color_button()
         layout.addWidget(self.color_button)
+        units_label = QLabel(self.tr('units'))
+        layout.addWidget(units_label)
+        self.units_combo = QComboBox()
+        self.units_combo.addItem('km', 'km')
+        self.units_combo.addItem('m', 'm')
+        self.units_combo.addItem('mi', 'mi')
+        self.units_combo.currentIndexChanged.connect(self.update_route_length_label)
+        layout.addWidget(self.units_combo)
+        self.length_label = QLabel(f"{self.tr('route_len')} -")
+        self.length_label.setMinimumWidth(150)
+        layout.addWidget(self.length_label)
         self.selector_widget.setLayout(layout)
         self.toolbar.addWidget(self.selector_widget)
 
@@ -333,6 +204,35 @@ class RoadShortestPathPlugin:
         if self.color_button is not None:
             self.color_button.setStyleSheet(f'color: {self.route_color}; font-weight: bold;')
 
+    def update_route_length_label(self, *args):
+        if self.length_label is None:
+            return
+        route_layer = self.get_route_layer()
+        if not route_layer or not route_layer.isValid() or route_layer.featureCount() == 0:
+            self.length_label.setText(f"{self.tr('route_len')} -")
+            return
+        feat = next(route_layer.getFeatures(), None)
+        if feat is None or feat.geometry().isEmpty():
+            self.length_label.setText(f"{self.tr('route_len')} -")
+            return
+        da = QgsDistanceArea()
+        da.setSourceCrs(route_layer.crs(), QgsProject.instance().transformContext())
+        ellipsoid = QgsProject.instance().ellipsoid()
+        if ellipsoid:
+            da.setEllipsoid(ellipsoid)
+        length = da.measureLength(feat.geometry())
+        unit_key = self.units_combo.currentData() if self.units_combo is not None else 'km'
+        if unit_key == 'm':
+            value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceMeters)
+            text = f"{value:.1f} m"
+        elif unit_key == 'mi':
+            value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceMiles)
+            text = f"{value:.2f} mi"
+        else:
+            value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceKilometers)
+            text = f"{value:.2f} km"
+        self.length_label.setText(f"{self.tr('route_len')} {text}")
+
     def cycle_route_color(self):
         colors = ['#ff0000', '#0066ff', '#00aa55', '#ff8800', '#aa00ff']
         idx = colors.index(self.route_color) if self.route_color in colors else 0
@@ -349,7 +249,6 @@ class RoadShortestPathPlugin:
         self.save_settings()
         if self.action is not None and self.action.isChecked():
             self.activate_route_mode(show_message=True)
-
 
     def unload(self):
         self.save_settings()
@@ -379,8 +278,15 @@ class RoadShortestPathPlugin:
 
         self.layer_combo.blockSignals(True)
         self.layer_combo.clear()
+
         for layer in QgsProject.instance().mapLayers().values():
             if layer.type() == QgsMapLayerType.VectorLayer and layer.geometryType() == QgsWkbTypes.LineGeometry:
+                if layer.storageType() == 'Memory storage':
+                    continue
+                if layer.name() in [self.tr('route_layer'), self.tr('marker_layer'), 'edges']:
+                    continue
+                if layer.id() == self.route_layer_id or layer.id() == self.marker_layer_id:
+                    continue
                 self.layer_combo.addItem(layer.name(), layer.id())
 
         restored_idx = -1
@@ -399,9 +305,15 @@ class RoadShortestPathPlugin:
             self.layer_combo.setCurrentIndex(restored_idx)
         elif not self.layer_choice_restored:
             self.apply_layer_selection_priority()
-
+        elif self.layer_combo.count() > 0:
+            self.layer_combo.setCurrentIndex(0)
         self.layer_combo.blockSignals(False)
         self.update_toolbar_enabled_state()
+
+        selected = self.selected_layer()
+        if current_id and selected is None:
+            self.clear_selection()
+            self.save_settings()
 
     def apply_layer_selection_priority(self):
         """Priority: previously saved layer (by source/name) -> layer named 'Road.shp' -> first in list."""
@@ -442,6 +354,8 @@ class RoadShortestPathPlugin:
             self.clear_action.setEnabled(has_layers)
         if self.color_button is not None:
             self.color_button.setEnabled(has_layers)
+        if self.units_combo is not None:
+            self.units_combo.setEnabled(has_layers)
         if not has_layers and self.action is not None and self.action.isChecked():
             self.action.setChecked(False)
 
@@ -506,6 +420,7 @@ class RoadShortestPathPlugin:
         self.end_point = None
         self.clear_route_layer()
         self.clear_marker_layer()
+        self.update_route_length_label()
         self.save_settings()
         self.iface.messageBar().pushMessage(self.tr('route'), self.tr('cleared'), level=0, duration=3)
 
@@ -707,6 +622,7 @@ class RoadShortestPathPlugin:
             return
         route_points = [point_lookup[key] for key in path_keys]
         self.update_route_layer(route_points)
+        self.update_route_length_label()
         self.iface.messageBar().pushMessage(self.tr('route'), self.tr('route_updated'), level=0, duration=4)
 
     def get_route_layer(self):
@@ -735,7 +651,7 @@ class RoadShortestPathPlugin:
             symbol.setWidth(1.2)
             route_layer.renderer().setSymbol(symbol)
             route_layer.triggerRepaint()
-            
+
     def create_start_symbol(self):
         return QgsMarkerSymbol.createSimple({
             'name': 'circle',
