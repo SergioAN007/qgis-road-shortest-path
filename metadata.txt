@@ -2,12 +2,22 @@
 name=Road Shortest Path
 qgisMinimumVersion=3.16
 version=1.1.2
-author=Andreev Sergey Petrovich
+author=Andreev Sergey
 email=sp4andreev@gmail.com
-about=Plugin for shortest path search on road graph using Dijkstra algorithm.
-category=Plugins
+
+description=Interactive shortest path routing on LineString road network layers.
+
+about=Road Shortest Path is a QGIS plugin for interactive shortest path routing on vector road networks. It allows users to calculate the shortest route between two points by clicking directly on the map. The plugin automatically snaps selected points to the nearest road segment and computes the optimal route using Dijkstra's algorithm. Features include two-click route creation, customizable route color, start and end markers, route length calculation, support for any LineString road network layer, and persistent plugin settings.
+
+category=Vector
 icon=icon.png
 experimental=False
 deprecated=False
 
-description=Plugin for shortest path search on road graph using Dijkstra algorithm.
+tags=shortest path,routing,road network,dijkstra,network analysis,linestring,route planner
+
+homepage=https://github.com/SergioAN007/qgis-road-shortest-path
+repository=https://github.com/SergioAN007/qgis-road-shortest-path
+tracker=https://github.com/SergioAN007/qgis-road-shortest-path/issues
+
+changelog=1.1.2 - Release build with interactive routing, snapping, route length display, customizable route color, markers, and persistent settings.
