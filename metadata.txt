@@ -1,7 +1,8 @@
 [general]
 name=Road Shortest Path
 qgisMinimumVersion=3.16
-version=1.1.2
+qgisMaximumVersion=4.99
+version=2.0.0
 author=Andreev Sergey
 email=sp4andreev@gmail.com
 
@@ -14,10 +15,24 @@ icon=icon.png
 experimental=False
 deprecated=False
 
-tags=shortest path,routing,road network,dijkstra,network analysis,linestring,route planner
+tags=shortest path,routing,road network,dijkstra,network analysis,linestring,route planner,route tester
 
 homepage=https://github.com/SergioAN007/qgis-road-shortest-path
 repository=https://github.com/SergioAN007/qgis-road-shortest-path
 tracker=https://github.com/SergioAN007/qgis-road-shortest-path/issues
 
-changelog=1.1.2 - Release build with interactive routing, snapping, route length display, customizable route color, markers, and persistent settings.
+changelog=
+    2.0.0
+    - Added QGIS 4.x compatibility.
+    - Updated for PyQt6.
+    - Improved routing algorithm.
+    - UI enhancements.
+
+    1.1.2
+    - Initial public release.
+    - Interactive routing.
+    - Automatic snapping.
+    - Route length calculation.
+    - Customizable route color.
+    - Start and end markers.
+    - Persistent settings.

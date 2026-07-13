@@ -1,12 +1,12 @@
 from math import hypot
 import heapq
 
-from qgis.PyQt.QtCore import QVariant, Qt, QSettings
+from qgis.core import Qgis
+from qgis.PyQt.QtCore import Qt, QSettings
 from qgis.PyQt.QtGui import QColor, QCursor, QPixmap, QPainter, QPen
 from qgis.PyQt.QtWidgets import QAction, QMessageBox, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
 from qgis.core import (
     QgsProject,
-    QgsMapLayerType,
     QgsWkbTypes,
     QgsFeature,
     QgsGeometry,
@@ -26,9 +26,105 @@ from qgis.core import (
 from qgis.gui import QgsMapToolEmitPoint
 from .translations import TRANSLATIONS
 
+
+# QGIS 3 / QGIS 4 (Qt5 / Qt6) compatibility helpers
+
+def _enum(*candidates):
+    for module, path in candidates:
+        obj = module
+        try:
+            for part in path.split('.'):
+                obj = getattr(obj, part)
+            return obj
+        except AttributeError:
+            continue
+    raise AttributeError('None of the candidates resolved: {}'.format(candidates))
+
+
+TRANSPARENT = _enum((Qt, 'transparent'), (Qt, 'GlobalColor.transparent'))
+ANTIALIASING = _enum((QPainter, 'Antialiasing'), (QPainter, 'RenderHint.Antialiasing'))
+
+try:
+    LAYER_TYPE_VECTOR = _enum((Qgis, 'LayerType.Vector'), (Qgis, 'VectorLayer'))
+except Exception:
+    from qgis.core import QgsMapLayerType as _QgsMapLayerType
+    LAYER_TYPE_VECTOR = _QgsMapLayerType.VectorLayer
+
+GEOMETRY_TYPE_LINE = _enum(
+    (Qgis, 'GeometryType.Line'),
+    (QgsWkbTypes, 'GeometryType.Line'),
+    (QgsWkbTypes, 'LineGeometry'),
+)
+
+MSG_INFO = _enum((Qgis, 'MessageLevel.Info'), (Qgis, 'Info'))
+MSG_WARNING = _enum((Qgis, 'MessageLevel.Warning'), (Qgis, 'Warning'))
+
+def _resolve_field_types():
+    from qgis.core import QgsField
+    from qgis.PyQt.QtCore import QVariant
+
+    candidates_double = []
+    candidates_string = []
+
+    try:
+        from qgis.PyQt.QtCore import QMetaType
+    except ImportError:
+        QMetaType = None
+
+    if QMetaType is not None:
+        meta_double = QMetaType.Type.Double if hasattr(QMetaType, 'Type') else QMetaType.Double
+        meta_string = QMetaType.Type.QString if hasattr(QMetaType, 'Type') else QMetaType.QString
+        candidates_double.append(meta_double)
+        candidates_string.append(meta_string)
+
+    candidates_double.append(QVariant.Double)
+    candidates_string.append(QVariant.String)
+
+    field_type_double = None
+    for candidate in candidates_double:
+        try:
+            QgsField('probe', candidate)
+            field_type_double = candidate
+            break
+        except TypeError:
+            continue
+    if field_type_double is None:
+        field_type_double = QVariant.Double
+
+    field_type_string = None
+    for candidate in candidates_string:
+        try:
+            QgsField('probe', candidate)
+            field_type_string = candidate
+            break
+        except TypeError:
+            continue
+    if field_type_string is None:
+        field_type_string = QVariant.String
+
+    return field_type_double, field_type_string
+
+
+FIELD_TYPE_DOUBLE, FIELD_TYPE_STRING = _resolve_field_types()
+
+
+def _layer_is_vector_line(layer):
+    try:
+        layer_type_ok = layer.type() == LAYER_TYPE_VECTOR
+    except Exception:
+        layer_type_ok = str(layer.type()).endswith('VectorLayer')
+    if not layer_type_ok:
+        return False
+    try:
+        return layer.geometryType() == GEOMETRY_TYPE_LINE
+    except Exception:
+        return False
+
+
 DEFAULT_ROUTE_COLOR = '#ff0000'
 DEFAULT_UNITS = 'km'
 SETTINGS_PREFIX = 'RoadShortestPath'
+
 
 class PointPickerTool(QgsMapToolEmitPoint):
     def __init__(self, canvas, callback):
@@ -40,9 +136,9 @@ class PointPickerTool(QgsMapToolEmitPoint):
     def _build_target_cursor(self):
         size = 32
         pix = QPixmap(size, size)
-        pix.fill(Qt.transparent)
+        pix.fill(TRANSPARENT)
         painter = QPainter(pix)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(ANTIALIASING)
         pen = QPen(QColor(0, 0, 0))
         pen.setWidth(2)
         painter.setPen(pen)
@@ -62,6 +158,7 @@ class PointPickerTool(QgsMapToolEmitPoint):
     def canvasReleaseEvent(self, event):
         point = self.toMapCoordinates(event.pos())
         self.callback(point)
+
 
 class RoadShortestPathPlugin:
     def __init__(self, iface):
@@ -102,7 +199,7 @@ class RoadShortestPathPlugin:
         return TRANSLATIONS.get(self.locale, TRANSLATIONS['en']).get(key, key)
 
     def setting_key(self, name):
-        return f'{SETTINGS_PREFIX}/{name}'
+        return '{}/{}'.format(SETTINGS_PREFIX, name)
 
     def load_settings(self):
         self.route_color = self.settings.value(self.setting_key('route_color'), DEFAULT_ROUTE_COLOR)
@@ -169,7 +266,7 @@ class RoadShortestPathPlugin:
         self.layer_combo.setMinimumWidth(220)
         self.layer_combo.currentIndexChanged.connect(self.on_layer_changed)
         layout.addWidget(self.layer_combo)
-        self.color_button = QPushButton('●')
+        self.color_button = QPushButton('\u25cf')
         self.color_button.setToolTip('Route color')
         self.color_button.setMaximumWidth(28)
         self.color_button.clicked.connect(self.cycle_route_color)
@@ -183,7 +280,7 @@ class RoadShortestPathPlugin:
         self.units_combo.addItem('mi', 'mi')
         self.units_combo.currentIndexChanged.connect(self.update_route_length_label)
         layout.addWidget(self.units_combo)
-        self.length_label = QLabel(f"{self.tr('route_len')} -")
+        self.length_label = QLabel('{} -'.format(self.tr('route_len')))
         self.length_label.setMinimumWidth(150)
         layout.addWidget(self.length_label)
         self.selector_widget.setLayout(layout)
@@ -202,18 +299,18 @@ class RoadShortestPathPlugin:
 
     def update_color_button(self):
         if self.color_button is not None:
-            self.color_button.setStyleSheet(f'color: {self.route_color}; font-weight: bold;')
+            self.color_button.setStyleSheet('color: {}; font-weight: bold;'.format(self.route_color))
 
     def update_route_length_label(self, *args):
         if self.length_label is None:
             return
         route_layer = self.get_route_layer()
         if not route_layer or not route_layer.isValid() or route_layer.featureCount() == 0:
-            self.length_label.setText(f"{self.tr('route_len')} -")
+            self.length_label.setText('{} -'.format(self.tr('route_len')))
             return
         feat = next(route_layer.getFeatures(), None)
         if feat is None or feat.geometry().isEmpty():
-            self.length_label.setText(f"{self.tr('route_len')} -")
+            self.length_label.setText('{} -'.format(self.tr('route_len')))
             return
         da = QgsDistanceArea()
         da.setSourceCrs(route_layer.crs(), QgsProject.instance().transformContext())
@@ -224,14 +321,14 @@ class RoadShortestPathPlugin:
         unit_key = self.units_combo.currentData() if self.units_combo is not None else 'km'
         if unit_key == 'm':
             value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceMeters)
-            text = f"{value:.1f} m"
+            text = '{:.1f} m'.format(value)
         elif unit_key == 'mi':
             value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceMiles)
-            text = f"{value:.2f} mi"
+            text = '{:.2f} mi'.format(value)
         else:
             value = da.convertLengthMeasurement(length, QgsUnitTypes.DistanceKilometers)
-            text = f"{value:.2f} km"
-        self.length_label.setText(f"{self.tr('route_len')} {text}")
+            text = '{:.2f} km'.format(value)
+        self.length_label.setText('{} {}'.format(self.tr('route_len'), text))
 
     def cycle_route_color(self):
         colors = ['#ff0000', '#0066ff', '#00aa55', '#ff8800', '#aa00ff']
@@ -280,7 +377,7 @@ class RoadShortestPathPlugin:
         self.layer_combo.clear()
 
         for layer in QgsProject.instance().mapLayers().values():
-            if layer.type() == QgsMapLayerType.VectorLayer and layer.geometryType() == QgsWkbTypes.LineGeometry:
+            if _layer_is_vector_line(layer):
                 if layer.storageType() == 'Memory storage':
                     continue
                 if layer.name() in [self.tr('route_layer'), self.tr('marker_layer'), 'edges']:
@@ -316,7 +413,8 @@ class RoadShortestPathPlugin:
             self.save_settings()
 
     def apply_layer_selection_priority(self):
-        """Priority: previously saved layer (by source/name) -> layer named 'Road.shp' -> first in list."""
+        # Priority: previously saved layer (by source/name) -> layer named
+        # 'Road.shp' -> first in list.
         if self.layer_combo is None or self.layer_combo.count() == 0:
             return
 
@@ -391,9 +489,9 @@ class RoadShortestPathPlugin:
             self.action.blockSignals(False)
         if show_message:
             if self.start_point is None:
-                self.iface.messageBar().pushMessage(self.tr('route'), self.tr('click_start'), level=0, duration=4)
+                self.iface.messageBar().pushMessage(self.tr('route'), self.tr('click_start'), level=MSG_INFO, duration=4)
             else:
-                self.iface.messageBar().pushMessage(self.tr('route'), self.tr('click_end'), level=0, duration=4)
+                self.iface.messageBar().pushMessage(self.tr('route'), self.tr('click_end'), level=MSG_INFO, duration=4)
 
     def deactivate_route_mode(self):
         if self.map_tool and self.canvas.mapTool() == self.map_tool:
@@ -422,7 +520,7 @@ class RoadShortestPathPlugin:
         self.clear_marker_layer()
         self.update_route_length_label()
         self.save_settings()
-        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('cleared'), level=0, duration=3)
+        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('cleared'), level=MSG_INFO, duration=3)
 
     def handle_map_click(self, point):
         if self.action is None or not self.action.isChecked():
@@ -432,7 +530,7 @@ class RoadShortestPathPlugin:
             self.end_point = None
             self.save_settings()
             self.update_marker_layer(start_point=self.start_point, end_point=None)
-            self.iface.messageBar().pushMessage(self.tr('route'), self.tr('start_selected'), level=0, duration=3)
+            self.iface.messageBar().pushMessage(self.tr('route'), self.tr('start_selected'), level=MSG_INFO, duration=3)
             return
         self.end_point = point
         self.update_marker_layer(start_point=self.start_point, end_point=self.end_point)
@@ -441,10 +539,14 @@ class RoadShortestPathPlugin:
     def build_graph(self, layer):
         graph = {}
         point_lookup = {}
-        edge_layer = QgsVectorLayer(f'LineString?crs={layer.crs().authid()}', 'edges', 'memory')
+        edge_layer = QgsVectorLayer('LineString?crs={}'.format(layer.crs().authid()), 'edges', 'memory')
         edge_provider = edge_layer.dataProvider()
-        edge_provider.addAttributes([QgsField('k1x', QVariant.Double), QgsField('k1y', QVariant.Double),
-                                      QgsField('k2x', QVariant.Double), QgsField('k2y', QVariant.Double)])
+        edge_provider.addAttributes([
+            QgsField('k1x', FIELD_TYPE_DOUBLE),
+            QgsField('k1y', FIELD_TYPE_DOUBLE),
+            QgsField('k2x', FIELD_TYPE_DOUBLE),
+            QgsField('k2y', FIELD_TYPE_DOUBLE),
+        ])
         edge_layer.updateFields()
         edge_features = []
         for feat in layer.getFeatures():
@@ -481,7 +583,7 @@ class RoadShortestPathPlugin:
         key = (layer.id(), layer.featureCount())
         if self.graph_cache and self.graph_cache.get('key') == key:
             return self.graph_cache
-        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('caching'), level=0, duration=0)
+        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('caching'), level=MSG_INFO, duration=0)
         from qgis.PyQt.QtWidgets import QApplication
         QApplication.processEvents()
         try:
@@ -559,9 +661,10 @@ class RoadShortestPathPlugin:
         return distances, previous
 
     def relax_new_vertex(self, graph, distances, previous, key):
-        """A virtual snap vertex connects only to its two host edge endpoints
-        (k1, k2), which already exist in the cached shortest-path tree. So its
-        distance is simply the best of those two, no full recompute needed."""
+        # A virtual snap vertex connects only to its two host edge endpoints
+        # (k1, k2), which already exist in the cached shortest-path tree. So
+        # its distance is simply the best of those two, no full recompute
+        # needed.
         best_dist = float('inf')
         best_prev = None
         for neighbor, weight in graph.get(key, []):
@@ -623,7 +726,7 @@ class RoadShortestPathPlugin:
         route_points = [point_lookup[key] for key in path_keys]
         self.update_route_layer(route_points)
         self.update_route_length_label()
-        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('route_updated'), level=0, duration=4)
+        self.iface.messageBar().pushMessage(self.tr('route'), self.tr('route_updated'), level=MSG_INFO, duration=4)
 
     def get_route_layer(self):
         if self.route_layer_id:
@@ -697,9 +800,9 @@ class RoadShortestPathPlugin:
         return group
 
     def create_route_layer(self, crs_authid):
-        self.route_layer = QgsVectorLayer(f'LineString?crs={crs_authid}', self.tr('route_layer'), 'memory')
+        self.route_layer = QgsVectorLayer('LineString?crs={}'.format(crs_authid), self.tr('route_layer'), 'memory')
         provider = self.route_layer.dataProvider()
-        provider.addAttributes([QgsField('name', QVariant.String)])
+        provider.addAttributes([QgsField('name', FIELD_TYPE_STRING)])
         self.route_layer.updateFields()
         symbol = QgsSymbol.defaultSymbol(self.route_layer.geometryType())
         symbol.setColor(QColor(self.route_color))
@@ -710,9 +813,9 @@ class RoadShortestPathPlugin:
         self.route_layer_id = self.route_layer.id()
 
     def create_marker_layer(self, crs_authid):
-        marker_layer = QgsVectorLayer(f'Point?crs={crs_authid}', self.tr('marker_layer'), 'memory')
+        marker_layer = QgsVectorLayer('Point?crs={}'.format(crs_authid), self.tr('marker_layer'), 'memory')
         provider = marker_layer.dataProvider()
-        provider.addAttributes([QgsField('type', QVariant.String)])
+        provider.addAttributes([QgsField('type', FIELD_TYPE_STRING)])
         marker_layer.updateFields()
         categories = [
             QgsRendererCategory('start', self.create_start_symbol(), self.tr('start')),
