@@ -3,7 +3,7 @@ name=Road Shortest Path
 qgisMinimumVersion=3.16
 qgisMaximumVersion=4.99
 version=2.0.1
-author=Andreev Sergey
+author=Sergey Andreev
 email=sp4andreev@gmail.com
 
 description=Interactive shortest path routing on LineString road network layers.
