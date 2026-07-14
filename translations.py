@@ -20,7 +20,9 @@ TRANSLATIONS = {
         'end': 'Son',
         'shortest_path': 'Ən qısa yol',
         'menu': 'Ən qısa yolun axtarışı',
-        'caching': 'Keşlənir…'
+        'caching': 'Keşlənir…',
+        'respect_oneway': 'Bir tərəfli yolu nəzərə al',
+        'oneway_hint': 'Bir tərəfli seqmentlər aşkarlandı: {}',
     },
     'en': {
         'route': 'Route',
@@ -43,7 +45,9 @@ TRANSLATIONS = {
         'end': 'End',
         'shortest_path': 'Shortest Path',
         'menu': 'Shortest Path',
-        'caching': 'Caching…'
+        'caching': 'Caching…',
+        'respect_oneway': 'Respect one-way',
+        'oneway_hint': 'One-way segments detected: {}',
     },
     'fr': {
         'route': 'Itinéraire',
@@ -66,7 +70,9 @@ TRANSLATIONS = {
         'end': 'Arrivée',
         'shortest_path': 'Plus court chemin',
         'menu': 'Recherche du plus court chemin',
-        'caching': 'Mise en cache…'
+        'caching': 'Mise en cache…',
+        'respect_oneway': 'Respecter le sens unique',
+        'oneway_hint': 'Segments à sens unique détectés : {}',
     },
     'ka': {
         'route': 'მარშრუტი',
@@ -89,7 +95,9 @@ TRANSLATIONS = {
         'end': 'დასასრული',
         'shortest_path': 'უმოკლესი გზა',
         'menu': 'უმოკლესი გზის ძიება',
-        'caching': 'ქეშირება…'
+        'caching': 'ქეშირება…',
+        'respect_oneway': 'ცალმხრივის გათვალისწინება',
+        'oneway_hint': 'ცალმხრივი მონაკვეთები აღმოჩენილია: {}',
     },
     'pl': {
         'route': 'Trasa',
@@ -112,7 +120,9 @@ TRANSLATIONS = {
         'end': 'Koniec',
         'shortest_path': 'Najkrótsza ścieżka',
         'menu': 'Wyszukiwanie najkrótszej trasy',
-        'caching': 'Buforowanie…'
+        'caching': 'Buforowanie…',
+        'respect_oneway': 'Uwzględniaj jednokierunkowe',
+        'oneway_hint': 'Wykryto odcinków jednokierunkowych: {}',
     },
     'ru': {
         'route': 'Маршрут',
@@ -135,7 +145,9 @@ TRANSLATIONS = {
         'end': 'Финиш',
         'shortest_path': 'Кратчайший путь',
         'menu': 'Поиск кратчайшего пути',
-        'caching': 'Кэширование…'
+        'caching': 'Кэширование…',
+        'respect_oneway': 'Учитывать одностороннее',
+        'oneway_hint': 'Обнаружено односторонних сегментов: {}',
     },
     'uk': {
         'route': 'Маршрут',
@@ -158,6 +170,8 @@ TRANSLATIONS = {
         'end': 'Фініш',
         'shortest_path': 'Найкоротший шлях',
         'menu': 'Пошук найкоротшого шляху',
-        'caching': 'Кешування…'
+        'caching': 'Кешування…',
+        'respect_oneway': 'Враховувати одностороннє',
+        'oneway_hint': 'Виявлено односторонніх сегментів: {}',
     }
 }

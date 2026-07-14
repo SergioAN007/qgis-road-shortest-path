@@ -2,7 +2,7 @@
 name=Road Shortest Path
 qgisMinimumVersion=3.16
 qgisMaximumVersion=4.99
-version=2.0.0
+version=2.0.1
 author=Andreev Sergey
 email=sp4andreev@gmail.com
 
@@ -22,6 +22,9 @@ repository=https://github.com/SergioAN007/qgis-road-shortest-path
 tracker=https://github.com/SergioAN007/qgis-road-shortest-path/issues
 
 changelog=
+    2.0.1
+    - One-way road support.
+	
     2.0.0
     - Added QGIS 4.x compatibility.
     - Updated for PyQt6.

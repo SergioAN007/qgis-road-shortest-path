@@ -4,7 +4,7 @@ import heapq
 from qgis.core import Qgis
 from qgis.PyQt.QtCore import Qt, QSettings
 from qgis.PyQt.QtGui import QColor, QCursor, QPixmap, QPainter, QPen
-from qgis.PyQt.QtWidgets import QAction, QMessageBox, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton, QCheckBox
 from qgis.core import (
     QgsProject,
     QgsWkbTypes,
@@ -26,10 +26,12 @@ from qgis.core import (
 from qgis.gui import QgsMapToolEmitPoint
 from .translations import TRANSLATIONS
 
-
 # QGIS 3 / QGIS 4 (Qt5 / Qt6) compatibility helpers
 
 def _enum(*candidates):
+    # Return the first resolvable attribute path from a list of
+    # (module, "dotted.path") candidates. Bridges Qt5/PyQt5 unscoped
+    # enums with Qt6/PyQt6 scoped enums, and QGIS 3/4 enum relocations.
     for module, path in candidates:
         obj = module
         try:
@@ -60,6 +62,11 @@ MSG_INFO = _enum((Qgis, 'MessageLevel.Info'), (Qgis, 'Info'))
 MSG_WARNING = _enum((Qgis, 'MessageLevel.Warning'), (Qgis, 'Warning'))
 
 def _resolve_field_types():
+    # QgsField() accepts a QVariant.Type on QGIS 3 (PyQt5) and a
+    # QMetaType.Type on QGIS 4 (PyQt6). QMetaType exists as a Python symbol
+    # on both bindings, so hasattr()-based detection is unreliable here -
+    # the only robust check is to actually try constructing a QgsField
+    # with each candidate type and see which one QGIS accepts.
     from qgis.core import QgsField
     from qgis.PyQt.QtCore import QVariant
 
@@ -123,7 +130,41 @@ def _layer_is_vector_line(layer):
 
 DEFAULT_ROUTE_COLOR = '#ff0000'
 DEFAULT_UNITS = 'km'
+DEFAULT_RESPECT_ONEWAY = True
 SETTINGS_PREFIX = 'RoadShortestPath'
+
+ONEWAY_FIELD_CANDIDATES = ['oneway', 'ONEWAY', 'one_way', 'ONE_WAY', 'Oneway', 'One_Way', 'Odnostoron']
+
+ONEWAY_FORWARD_VALUES = {'yes', 'true', '1', 'y', 't', 'ft', 'f'}
+ONEWAY_REVERSE_VALUES = {'-1', 'reverse', 'tf', 'r'}
+ONEWAY_NONE_VALUES = {'no', 'false', '0', 'n', 'b', 'both', ''}
+
+
+def _find_oneway_field(layer):
+    field_names = [f.name() for f in layer.fields()]
+    lookup = {name.lower(): name for name in field_names}
+    for candidate in ONEWAY_FIELD_CANDIDATES:
+        match = lookup.get(candidate.lower())
+        if match is not None:
+            return match
+    return None
+
+
+def _oneway_direction(raw_value):
+    """Classify a one-way attribute value.
+
+    Returns 'forward' (only the line-digitized direction is allowed),
+    'reverse' (only the opposite direction is allowed), or 'both'
+    (bidirectional / unknown value treated permissively as two-way).
+    """
+    if raw_value is None:
+        return 'both'
+    text = str(raw_value).strip().lower()
+    if text in ONEWAY_FORWARD_VALUES:
+        return 'forward'
+    if text in ONEWAY_REVERSE_VALUES:
+        return 'reverse'
+    return 'both'
 
 
 class PointPickerTool(QgsMapToolEmitPoint):
@@ -172,6 +213,7 @@ class RoadShortestPathPlugin:
         self.layer_label = None
         self.color_button = None
         self.units_combo = None
+        self.oneway_checkbox = None
         self.length_label = None
         self.map_tool = None
         self.previous_map_tool = None
@@ -182,8 +224,11 @@ class RoadShortestPathPlugin:
         self.marker_layer_id = None
         self.locale = self.detect_locale()
         self.route_color = DEFAULT_ROUTE_COLOR
+        self.respect_oneway = DEFAULT_RESPECT_ONEWAY
         self.settings = QgsSettings()
         self.graph_cache = None
+        self.last_oneway_field = None
+        self.last_oneway_count = 0
         self.start_key = None
         self.start_overrides = None
         self.layer_choice_restored = False
@@ -203,6 +248,7 @@ class RoadShortestPathPlugin:
 
     def load_settings(self):
         self.route_color = self.settings.value(self.setting_key('route_color'), DEFAULT_ROUTE_COLOR)
+        self.respect_oneway = self.settings.value(self.setting_key('respect_oneway'), DEFAULT_RESPECT_ONEWAY, type=bool)
         x = self.settings.value(self.setting_key('start_x'), None)
         y = self.settings.value(self.setting_key('start_y'), None)
         if x is not None and y is not None:
@@ -221,6 +267,9 @@ class RoadShortestPathPlugin:
 
         if self.units_combo is not None:
             self.settings.setValue(self.setting_key('units'), self.units_combo.currentData())
+
+        if self.oneway_checkbox is not None:
+            self.settings.setValue(self.setting_key('respect_oneway'), self.oneway_checkbox.isChecked())
 
         if self.start_point is not None:
             self.settings.setValue(self.setting_key('start_x'), self.start_point.x())
@@ -262,27 +311,38 @@ class RoadShortestPathPlugin:
         layout.setContentsMargins(4, 0, 4, 0)
         self.layer_label = QLabel(self.tr('roads_layer'))
         layout.addWidget(self.layer_label)
+        
         self.layer_combo = QComboBox()
         self.layer_combo.setMinimumWidth(220)
         self.layer_combo.currentIndexChanged.connect(self.on_layer_changed)
         layout.addWidget(self.layer_combo)
+        
         self.color_button = QPushButton('\u25cf')
         self.color_button.setToolTip('Route color')
         self.color_button.setMaximumWidth(28)
         self.color_button.clicked.connect(self.cycle_route_color)
         self.update_color_button()
         layout.addWidget(self.color_button)
+        
+        self.oneway_checkbox = QCheckBox(self.tr('respect_oneway'))
+        self.oneway_checkbox.setChecked(self.respect_oneway)
+        self.oneway_checkbox.toggled.connect(self.on_oneway_toggled)
+        layout.addWidget(self.oneway_checkbox)
+        
         units_label = QLabel(self.tr('units'))
         layout.addWidget(units_label)
+        
         self.units_combo = QComboBox()
         self.units_combo.addItem('km', 'km')
         self.units_combo.addItem('m', 'm')
         self.units_combo.addItem('mi', 'mi')
         self.units_combo.currentIndexChanged.connect(self.update_route_length_label)
         layout.addWidget(self.units_combo)
+        
         self.length_label = QLabel('{} -'.format(self.tr('route_len')))
         self.length_label.setMinimumWidth(150)
         layout.addWidget(self.length_label)
+        
         self.selector_widget.setLayout(layout)
         self.toolbar.addWidget(self.selector_widget)
 
@@ -342,6 +402,14 @@ class RoadShortestPathPlugin:
             self.update_marker_style()
 
     def on_layer_changed(self):
+        self.clear_selection()
+        self.save_settings()
+        if self.action is not None and self.action.isChecked():
+            self.activate_route_mode(show_message=True)
+
+    def on_oneway_toggled(self, checked):
+        self.respect_oneway = checked
+        self.graph_cache = None
         self.clear_selection()
         self.save_settings()
         if self.action is not None and self.action.isChecked():
@@ -539,7 +607,31 @@ class RoadShortestPathPlugin:
     def build_graph(self, layer):
         graph = {}
         point_lookup = {}
-        edge_layer = QgsVectorLayer('LineString?crs={}'.format(layer.crs().authid()), 'edges', 'memory')
+
+        layer_crs = None
+        try:
+            if layer is not None:
+                candidate_crs = layer.crs()
+                if candidate_crs is not None and candidate_crs.isValid():
+                    layer_crs = candidate_crs
+        except Exception:
+            layer_crs = None
+
+        if layer_crs is None:
+            try:
+                project_crs = QgsProject.instance().crs()
+                if project_crs is not None and project_crs.isValid():
+                    layer_crs = project_crs
+            except Exception:
+                layer_crs = None
+
+        crs_authid = layer_crs.authid() if layer_crs is not None and layer_crs.isValid() else 'EPSG:4326'
+
+        edge_layer = QgsVectorLayer(
+            'LineString?crs={}'.format(crs_authid),
+            'edges',
+            'memory'
+        )
         edge_provider = edge_layer.dataProvider()
         edge_provider.addAttributes([
             QgsField('k1x', FIELD_TYPE_DOUBLE),
@@ -549,14 +641,45 @@ class RoadShortestPathPlugin:
         ])
         edge_layer.updateFields()
         edge_features = []
+
+        oneway_field = _find_oneway_field(layer) if self.respect_oneway else None
+        oneway_count = 0
+
+        da = QgsDistanceArea()
+
+        if layer_crs is not None and layer_crs.isValid():
+            try:
+                da.setSourceCrs(layer_crs, QgsProject.instance().transformContext())
+            except TypeError:
+                da.setSourceCrs(layer_crs)
+
+        ellipsoid = QgsProject.instance().ellipsoid()
+        if not ellipsoid or ellipsoid == 'None' or ellipsoid == '':
+            ellipsoid = 'WGS84'
+
+        da.setEllipsoid(ellipsoid)
+
+        if hasattr(da, 'setEllipsoidalMode'):
+            da.setEllipsoidalMode(True)
+
         for feat in layer.getFeatures():
             geom = feat.geometry()
             if geom.isEmpty():
                 continue
+
+            if oneway_field is not None:
+                direction = _oneway_direction(feat[oneway_field])
+            else:
+                direction = 'both'
+
+            if direction != 'both':
+                oneway_count += 1
+
             lines = geom.asMultiPolyline() if geom.isMultipart() else [geom.asPolyline()]
             for line in lines:
                 if len(line) < 2:
                     continue
+
                 for i in range(len(line) - 1):
                     p1 = QgsPointXY(line[i])
                     p2 = QgsPointXY(line[i + 1])
@@ -564,23 +687,36 @@ class RoadShortestPathPlugin:
                     k2 = self.point_key(p2)
                     point_lookup[k1] = p1
                     point_lookup[k2] = p2
-                    dist = self.distance(p1, p2)
+
+                    line_geom = QgsGeometry.fromPolylineXY([p1, p2])
+                    dist = da.measureLength(line_geom)
+
                     if dist <= 0:
                         continue
-                    graph.setdefault(k1, []).append((k2, dist))
-                    graph.setdefault(k2, []).append((k1, dist))
+
+                    if direction != 'reverse':
+                        graph.setdefault(k1, []).append((k2, dist))
+                    if direction != 'forward':
+                        graph.setdefault(k2, []).append((k1, dist))
+
                     ef = QgsFeature(edge_layer.fields())
                     ef.setGeometry(QgsGeometry.fromPolylineXY([p1, p2]))
                     ef.setAttributes([k1[0], k1[1], k2[0], k2[1]])
                     edge_features.append(ef)
+
         if edge_features:
             edge_provider.addFeatures(edge_features)
+
         edge_layer.updateExtents()
         spatial_index = QgsSpatialIndex(edge_layer.getFeatures())
-        return graph, point_lookup, edge_layer, spatial_index
 
+        self.last_oneway_field = oneway_field
+        self.last_oneway_count = oneway_count
+
+        return graph, point_lookup, edge_layer, spatial_index
+        
     def get_cached_graph(self, layer):
-        key = (layer.id(), layer.featureCount())
+        key = (layer.id(), layer.featureCount(), self.respect_oneway)
         if self.graph_cache and self.graph_cache.get('key') == key:
             return self.graph_cache
         self.iface.messageBar().pushMessage(self.tr('route'), self.tr('caching'), level=MSG_INFO, duration=0)
@@ -876,7 +1012,8 @@ class RoadShortestPathPlugin:
             route_layer = self.get_route_layer()
         self.clear_route_layer()
         feat = QgsFeature(route_layer.fields())
-        feat.setGeometry(QgsGeometry.fromPolylineXY(route_points))
+        route_geom = QgsGeometry.fromPolylineXY([self.start_point] + route_points + [self.end_point])
+        feat.setGeometry(route_geom)
         feat['name'] = self.tr('shortest_path')
         route_layer.dataProvider().addFeature(feat)
         self.update_route_style()
@@ -885,7 +1022,7 @@ class RoadShortestPathPlugin:
 
     @staticmethod
     def point_key(point):
-        return (round(point.x(), 6), round(point.y(), 6))
+        return (round(point.x(), 8), round(point.y(), 8))
 
     @staticmethod
     def distance(p1, p2):

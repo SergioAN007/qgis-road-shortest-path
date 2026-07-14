@@ -8,6 +8,7 @@ The plugin allows you to calculate the shortest route between two points by simp
 
 * Interactive routing directly on the map
 * Two-click route creation
+* One-way road support
 * Automatic snapping to the nearest road
 * Shortest path calculation using Dijkstra's algorithm
 * Customizable route color
